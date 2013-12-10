@@ -1,11 +1,10 @@
 <!doctype html>
-<html lang="en" ng-app="hydroapp">
+<html lang="en" ng-app="maintenanceapp">
 	<head>
-		<title>Venice Hydrodynamics</title>
+		<title>Venice Canal Maintenance</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 		
 		<link rel="stylesheet" type="text/css" href="css/reset.css"/>
-		
 		
 		<!-- Firebase -->
 		<script type='text/javascript' src='https://cdn.firebase.com/v0/firebase.js'></script>
@@ -35,12 +34,6 @@
 		
 		<!-- local css -->
 		<link rel="stylesheet" type="text/css" href="css/main.css"/>
-		
-		<!-- chroma.js -->
-		<script type='text/javascript' src='js/chroma.min.js'></script>
-		
-		<!-- ArrowLine library -->
-		<script type='text/javascript' src='js/ArrowLine.js'></script>
 		
 		
 		<style type="text/css">
@@ -79,21 +72,25 @@
 				L.control.scale().addTo(map);
 			});
 			
-			app = angular.module('hydroapp', ['uiSlider']);
+			app = angular.module('maintenanceapp', ['uiSlider']);
 			app.controller('MapCtrl', ['$scope', '$compile', '$http', '$q', '$timeout', function($scope, $compile, $http, $q, $timeout){
-				$scope.Math = window.Math;
 				$scope.timeIndex = 0;
 				
-				function createHeightSelectorBox(){
-					var info = L.control({position: "bottomright"});
+				$scope.hoverFields = [
+					{label: "Segment IDs", key: "Segment IDs"},
+					{label: "End Date", key: "End Date"},
+					{label: "Dry Dredged (m^3)", key: "Dry Dredged (m^3)"},
+					{label: "Wet Dredged (m^3)", key: "Wet Dredged (m^3)"},
+					{label: "Mud Volume (m^3)", key: "Mud Volume (m^3)"},
+				];
+				
+				function createJobInfoBox(){
+					var info = L.control();
 					info.onAdd = function (map) {
-						var htmlContent = '<div class="info">'+
-							'<p><h4>Time</h4></p>'+
-							'<p><h5 style="margin:0px;">'+
-							'{{Math.floor(modelTimestep.timestep/3600%24)}}:00 '+
-							'Day {{Math.floor(modelTimestep.timestep/3600/24)+1}}'+
-							'</h5>'+
-							'<slider floor="0" ceiling="{{modelData.length-1}}" step="1" precision="0" ng-model="timeIndex"></slider></p>'+
+						var htmlContent = '<div class="info"><h4>Canal Maintenance Information</h4>'+
+							'<p ng-show="recentMaintenance[hoverSegment]"><span ng-repeat="fieldRow in hoverFields" style="display:block" ng-show="recentMaintenance[hoverSegment][fieldRow.key]"><span style="font-weight:bold;">{{fieldRow.label}}:</span> {{recentMaintenance[hoverSegment][fieldRow.key]}}</span></p>'+
+							'<p ng-show="hoverSegment && !recentMaintenance[hoverSegment]">There is no recent maintenance as in {{hoverSegment}} as of {{dateString}}</p>'+
+							'<p ng-hide="hoverSegment">Hover over a canal segment to see the most recent maintenance information</p>'+
 							'</div>';
 						$scope.compiled = $compile(htmlContent)($scope);
 						this._content = $scope.compiled[0];
@@ -102,62 +99,78 @@
 					return info;
 				}
 				
-				var x = chroma.interpolate.bezier(['green', 'yellow', 'red', 'pink']);
+				function createTimeSelectorBox(){
+					var info = L.control({position: "bottomright"});
+					info.onAdd = function (map) {
+						var htmlContent = '<div class="info">'+
+							'<p><h4>Date</h4></p>'+
+							'<p><h5 style="margin:0px;">'+
+							'{{dateString}}'+
+							'</h5>'+
+							'<slider floor="0" ceiling="{{numDates}}" step="1" precision="0" ng-model="timeIndex"></slider></p>'+
+							'</div>';
+						$scope.compiled = $compile(htmlContent)($scope);
+						this._content = $scope.compiled[0];
+						return this._content;
+					};
+					return info;
+				}
 				
+				var range = 100;
+				$scope.recentMaintenance = {};
 				function updateMarkers(){
-					if($scope.segmentArrows && $scope.modelTimestep && $scope.segmentData && $scope.segmentPolygons){
-						for(var segmentId in $scope.segmentArrows){
-							var arrow = $scope.segmentArrows[segmentId];
-							var data = $scope.segmentData[segmentId];
-							if(arrow && data){
-								var vel = $scope.modelTimestep.velocity[segmentId-2001];
-								if(vel!==undefined){
-									if(vel>0.002){
-										arrow.setAngle(data.angle);
-										arrow.setHeadVisible(true);
+					if($scope.timeIndex && $scope.maintenanceData && $scope.segmentPolygons){
+						for(var segmentId in $scope.segmentPolygons){
+							var segmentPolygon = $scope.segmentPolygons[segmentId];
+							var data = $scope.maintenanceData[segmentId];
+							var timeIndex = $scope.timeIndex*1;//make sure to convert from string
+							if(segmentPolygon && data && data.first!==undefined && data.first<timeIndex+range/2){
+								var nearTime = false;
+								for(var i in data.all){
+									var jobData = data.all[i];
+									var index = jobData.timeIndex;
+									if(index<timeIndex+range/2){
+										if(!$scope.recentMaintenance[segmentId] || index<$scope.recentMaintenance[segmentId].timeIndex)
+											$scope.recentMaintenance[segmentId] = jobData;
 									}
-									else if(vel<-0.002){
-										arrow.setAngle(data.angle+Math.PI);
-										arrow.setHeadVisible(true);
-									}
-									else{
-										arrow.setAngle(data.angle);
-										arrow.setHeadVisible(false);
-									}
-									var segmentPolygon = $scope.segmentPolygons[data.segmentId];
-									if(segmentPolygon){
-										segmentPolygon.setStyle({fillColor: x(Math.abs(vel)/0.3).hex()});
+									if(index>timeIndex-range/2 && index<timeIndex+range/2){
+										nearTime = true;
+										break;
 									}
 								}
+								if(nearTime){
+									segmentPolygon.setStyle({fillColor: 'yellow', fillOpacity: 1.0, weight: 1});
+								}
+								else{
+									segmentPolygon.setStyle({fillColor: '#00ff00', fillOpacity: 0.5, weight: 0});
+								}
+							}
+							else{
+								$scope.recentMaintenance[segmentId] = null;
+								segmentPolygon.setStyle({fillColor: '#ff0000', fillOpacity: 0.8, weight: 0});
 							}
 						}
 					}
 				}
-				$scope.$watch('modelTimestep', updateMarkers);
-				$scope.$watchCollection('segmentArrows', updateMarkers);
+				$scope.$watch('timeIndex', updateMarkers);
 				$scope.$watchCollection('segmentData', updateMarkers);
 				$scope.$watchCollection('segmentPolygons', updateMarkers);
 				
 				
-				function updateModelTimestep(){
-					if($scope.modelData && $scope.timeIndex)
-						$scope.modelTimestep = $scope.modelData[$scope.timeIndex];
-				}
-				$scope.$watch('modelData', updateModelTimestep);
-				$scope.$watch('timeIndex', updateModelTimestep);
-				
-				$scope.onTimeout = function(){
-					if($scope.modelData){
-						if($scope.timeIndex < $scope.modelData.length-1)
-							$scope.timeIndex++;
+				function updateTime(){
+					if($scope.timeIndex && $scope.firstDate){
+						var sec = $scope.firstDate*1+$scope.timeIndex*86400*1000;
+						var d = new Date(sec);
+						$scope.dateString = d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();
 					}
-					$scope.mytimeout = $timeout($scope.onTimeout, 200);
 				}
-				$scope.mytimeout = $timeout($scope.onTimeout, 2000);
+				$scope.$watch('timeIndex', updateTime);
+				$scope.$watch('firstDate', updateTime);
 				
 				
 				$( document ).ready(function() {
-					createHeightSelectorBox().addTo(map);
+					createJobInfoBox().addTo(map);
+					createTimeSelectorBox().addTo(map);
 					
 				
 					$('#spinner').spin('large', '#fff');
@@ -169,64 +182,39 @@
 									if(result.status == 200){
 										var segmentLayer = L.geoJson(result.data, {
 											style: {
-												fillColor: '#0000FF', fillOpacity: 1.0, weight: 0, clickable: false
+												fillOpacity: 0, weight: 0, color:'#000000'
 											}
 										});
 										return segmentLayer;
 									}
 								}),
-							modelSegments: $http.get('modelSegments.json')
+							maintenanceData: $http.get('maintenance.json')
 								.then(function(result) {
 									if(result.status == 200){
-										$scope.segmentArrows = {};
-										$scope.segmentData = result.data;
-										var segmentPolygonOptions = {weight: 0, fillColor: '#000000', fillOpacity: 1.0, clickable: false};
-										var segmentLayersGroup = new L.FeatureGroup();
-										for(var segmentId in result.data){
-											var segmentData = result.data[segmentId];
-											var midpoint = segmentData.midpoint;
-											var angle = segmentData.angle;
-											
-											var segmentLayer = new L.ArrowLine(L.latLng(midpoint.y, midpoint.x), angle, 0.0003, segmentPolygonOptions);
-											$scope.segmentArrows[segmentId] = segmentLayer;
-											segmentLayersGroup.addLayer(segmentLayer);
-										}
-										return segmentLayersGroup;
-									}
-								}),
-							modelOutput: $http.get('out.json')
-								.then(function(result) {
-									if(result.status == 200){
-										return $scope.modelData = result.data;
+										var parts = result.data.firstDate.split('-');
+										$scope.firstDate = new Date(parts[0], parts[1]-1, parts[2]).getTime();
+										$scope.numDates = result.data.numDates;
+										console.log(result.data.segments);
+										return $scope.maintenanceData = result.data.segments;
 									}
 								})
 						}
 					).then(function(layers){
-						var validModelSegments = {};
-						var validSegments = {};
-						for(var x in $scope.modelData[0].velocity){
-							var modelId = x*1+2001;
-							validSegments[$scope.segmentData[modelId].segmentId] = true;
-							validModelSegments[modelId] = true;
-						}
-						
 						$scope.segmentPolygons = {};
 						for(var layerId in layers.segments._layers){
 							var layer = layers.segments._layers[layerId];
 							var segmentId = layer.feature.properties.Codice;
-							if(validSegments[segmentId])
-								$scope.segmentPolygons[segmentId] = layer;
-							else
-								layers.segments.removeLayer(layer);
-						}
-						for(var segmentId in $scope.segmentArrows){
-							var arrow = $scope.segmentArrows[segmentId];
-							if(!validModelSegments[segmentId])
-								layers.modelSegments.removeLayer(arrow);
+							$scope.segmentPolygons[segmentId] = layer;
 						}
 						
+						layers.segments.on('mouseover', function(e){$scope.$apply(function(){
+							$scope.hoverSegment = e.layer.feature.properties.Codice;
+						});});
+						layers.segments.on('mouseout', function(e){$scope.$apply(function(){
+							if($scope.hoverSegment == e.layer.feature.properties.Codice)
+								$scope.hoverSegment = null;
+						});});
 						layers.segments.addTo(map);
-						layers.modelSegments.addTo(map);
 						$('#loadingPanel').hide();
 						$('#spinner').spin(false);
 					});
