@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en" ng-app="hydroapp">
+	<head>
+		<title>Venice Hydrodynamics</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+		
+		<link rel="stylesheet" type="text/css" href="css/reset.css"/>
+		
+		
+		<!-- Firebase -->
+		<script type='text/javascript' src='https://cdn.firebase.com/v0/firebase.js'></script>
+		
+		<!-- jquery -->
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+		
+		<!-- Leaflet -->
+		<script src="http://cdn.leafletjs.com/leaflet-0.7/leaflet.js"></script>
+		<link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7/leaflet.css" />
+		
+		<!-- bootstrap -->
+		<link rel="stylesheet" type="text/css" href="css/bootstrap.min.css"/>
+		<link rel="stylesheet" type="text/css" href="css/bootstrap-theme.min.css"/>
+		<script type='text/javascript' src='js/bootstrap.min.js'></script>
+		
+		<!-- angularjs -->
+		<script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.2.0/angular.min.js"></script>
+		
+		<!-- angular slider -->
+		<link rel="stylesheet" type="text/css" href="css/angular-slider.min.css"/>
+		<script type='text/javascript' src='js/angular-slider.min.js'></script>
+		
+		<!-- spinner -->
+		<script type='text/javascript' src='js/spin.min.js'></script>
+		<script type='text/javascript' src='js/jquery.spin.js'></script>
+		
+		<!-- local css -->
+		<link rel="stylesheet" type="text/css" href="css/main.css"/>
+		
+		<!-- chroma.js -->
+		<script type='text/javascript' src='js/chroma.min.js'></script>
+		
+		<!-- ArrowLine library -->
+		<script type='text/javascript' src='js/ArrowLine.js'></script>
+		
+		
+		<style type="text/css">
+			/* fix for slider conflict with bootstrap */
+			slider span{
+				-webkit-box-sizing: content-box !important;
+				-moz-box-sizing: content-box !important;
+				box-sizing: content-box !important;
+			}
+			
+			.info {
+				padding: 6px 8px;
+				font: 14px/16px Arial, Helvetica, sans-serif;
+				background: white;
+				background: rgba(255,255,255,0.9);
+				box-shadow: 0 0 15px rgba(0,0,0,0.2);
+				border-radius: 5px;
+				width: 500px;
+			}
+			.info h4 {
+				margin: 0 0 5px;
+				color: #777;
+			}
+		</style>
+		
+		<script type='text/javascript'>
+			var map;
+			var baseLayer;
+			
+			$( document ).ready(function() {
+				map = L.map("map-canvas", {minZoom: 12}).setView([45.4375 , 12.334], 15);
+				baseLayer = new L.TileLayer(
+					'http://{s}.tiles.mapbox.com/v3/bennlich.map-8ds9rdrc/{z}/{x}/{y}.png',
+					{ attribution: 'Map tiles © MapBox' }
+					).addTo(map);
+				L.control.scale().addTo(map);
+			});
+			
+			app = angular.module('hydroapp', ['uiSlider']);
+			app.controller('MapCtrl', ['$scope', '$compile', '$http', '$q', '$timeout', function($scope, $compile, $http, $q, $timeout){
+				$scope.Math = window.Math;
+				$scope.timeIndex = 0;
+				
+				function createHeightSelectorBox(){
+					var info = L.control({position: "bottomright"});
+					info.onAdd = function (map) {
+						var htmlContent = '<div class="info">'+
+							'<p><h4>Time</h4></p>'+
+							'<p><h5 style="margin:0px;">'+
+							'{{Math.floor(modelTimestep.timestep/3600%24)}}:00 '+
+							'Day {{Math.floor(modelTimestep.timestep/3600/24)+1}}'+
+							'</h5>'+
+							'<slider floor="0" ceiling="{{modelData.length-1}}" step="1" precision="0" ng-model="timeIndex"></slider></p>'+
+							'</div>';
+						$scope.compiled = $compile(htmlContent)($scope);
+						this._content = $scope.compiled[0];
+						return this._content;
+					};
+					return info;
+				}
+				
+				var x = chroma.interpolate.bezier(['green', 'yellow', 'red', 'pink']);
+				
+				function updateMarkers(){
+					if($scope.segmentArrows && $scope.modelTimestep && $scope.segmentData && $scope.segmentPolygons){
+						for(var segmentId in $scope.segmentArrows){
+							var arrow = $scope.segmentArrows[segmentId];
+							var data = $scope.segmentData[segmentId];
+							if(arrow && data){
+								var vel = $scope.modelTimestep.velocity[segmentId-2001];
+								if(vel!==undefined){
+									if(vel>0.002){
+										arrow.setAngle(data.angle);
+										arrow.setHeadVisible(true);
+									}
+									else if(vel<-0.002){
+										arrow.setAngle(data.angle+Math.PI);
+										arrow.setHeadVisible(true);
+									}
+									else{
+										arrow.setAngle(data.angle);
+										arrow.setHeadVisible(false);
+									}
+									var segmentPolygon = $scope.segmentPolygons[data.segmentId];
+									if(segmentPolygon){
+										segmentPolygon.setStyle({fillColor: x(Math.abs(vel)/0.3).hex()});
+									}
+								}
+							}
+						}
+					}
+				}
+				$scope.$watch('modelTimestep', updateMarkers);
+				$scope.$watchCollection('segmentArrows', updateMarkers);
+				$scope.$watchCollection('segmentData', updateMarkers);
+				$scope.$watchCollection('segmentPolygons', updateMarkers);
+				
+				
+				function updateModelTimestep(){
+					if($scope.modelData && $scope.timeIndex)
+						$scope.modelTimestep = $scope.modelData[$scope.timeIndex];
+				}
+				$scope.$watch('modelData', updateModelTimestep);
+				$scope.$watch('timeIndex', updateModelTimestep);
+				
+				$scope.onTimeout = function(){
+					if($scope.modelData){
+						if($scope.timeIndex < $scope.modelData.length-1)
+							$scope.timeIndex++;
+					}
+					$scope.mytimeout = $timeout($scope.onTimeout, 200);
+				}
+				$scope.mytimeout = $timeout($scope.onTimeout, 2000);
+				
+				
+				$( document ).ready(function() {
+					createHeightSelectorBox().addTo(map);
+					
+				
+					$('#spinner').spin('large', '#fff');
+					
+					$q.all(
+						{
+							segments: $http.get('segments.geojson')
+								.then(function(result) {
+									if(result.status == 200){
+										var segmentLayer = L.geoJson(result.data, {
+											style: {
+												fillColor: '#0000FF', fillOpacity: 1.0, weight: 0, clickable: false
+											}
+										});
+										return segmentLayer;
+									}
+								}),
+							modelSegments: $http.get('modelSegments.json')
+								.then(function(result) {
+									if(result.status == 200){
+										$scope.segmentArrows = {};
+										$scope.segmentData = result.data;
+										var segmentPolygonOptions = {weight: 0, fillColor: '#000000', fillOpacity: 1.0, clickable: false};
+										var segmentLayersGroup = new L.FeatureGroup();
+										for(var segmentId in result.data){
+											var segmentData = result.data[segmentId];
+											var midpoint = segmentData.midpoint;
+											var angle = segmentData.angle;
+											
+											var segmentLayer = new L.ArrowLine(L.latLng(midpoint.y, midpoint.x), angle, 0.0003, segmentPolygonOptions);
+											$scope.segmentArrows[segmentId] = segmentLayer;
+											segmentLayersGroup.addLayer(segmentLayer);
+										}
+										return segmentLayersGroup;
+									}
+								}),
+							modelOutput: $http.get('out.json')
+								.then(function(result) {
+									if(result.status == 200){
+										return $scope.modelData = result.data;
+									}
+								})
+						}
+					).then(function(layers){
+						var validModelSegments = {};
+						var validSegments = {};
+						for(var x in $scope.modelData[0].velocity){
+							var modelId = x*1+2001;
+							validSegments[$scope.segmentData[modelId].segmentId] = true;
+							validModelSegments[modelId] = true;
+						}
+						
+						$scope.segmentPolygons = {};
+						for(var layerId in layers.segments._layers){
+							var layer = layers.segments._layers[layerId];
+							var segmentId = layer.feature.properties.Codice;
+							if(validSegments[segmentId])
+								$scope.segmentPolygons[segmentId] = layer;
+							else
+								layers.segments.removeLayer(layer);
+						}
+						for(var segmentId in $scope.segmentArrows){
+							var arrow = $scope.segmentArrows[segmentId];
+							if(!validModelSegments[segmentId])
+								layers.modelSegments.removeLayer(arrow);
+						}
+						
+						layers.segments.addTo(map);
+						layers.modelSegments.addTo(map);
+						$('#loadingPanel').hide();
+						$('#spinner').spin(false);
+					});
+
+				});
+			}]);
+		</script>
+	</head>
+	<body ng-controller="MapCtrl">
+		<div style="position:absolute;width:100%;height:100%;">
+			<div id="map-canvas" style="width:100%;height:100%;"></div>
+		</div>
+		
+		<div style="position:absolute;top:0px;left:0px;width:100%;height:100%;z-index:2000;background-color:rgba(0,0,0,0.5);" id="loadingPanel">
+			<div style="margin-left:auto;margin-right:auto;text-align:center;margin-top:50px;" id="loadingText"><h3 style="color:white;">Loading...</h3></div>
+			<div style="position:absolute;left:50%;top:50%;" id="spinner"/>
+		</div>
+	</body>
+</html>
