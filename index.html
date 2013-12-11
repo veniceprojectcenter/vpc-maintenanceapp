@@ -89,7 +89,7 @@
 					info.onAdd = function (map) {
 						var htmlContent = '<div class="info"><h4>Canal Maintenance Information</h4>'+
 							'<p ng-show="recentMaintenance[hoverSegment]"><span ng-repeat="fieldRow in hoverFields" style="display:block" ng-show="recentMaintenance[hoverSegment][fieldRow.key]"><span style="font-weight:bold;">{{fieldRow.label}}:</span> {{recentMaintenance[hoverSegment][fieldRow.key]}}</span></p>'+
-							'<p ng-show="hoverSegment && !recentMaintenance[hoverSegment]">There is no recent maintenance as in {{hoverSegment}} as of {{dateString}}</p>'+
+							'<p ng-show="hoverSegment && !recentMaintenance[hoverSegment]">There is no recent maintenance information for {{hoverSegment}} as of {{dateString}}</p>'+
 							'<p ng-hide="hoverSegment">Hover over a canal segment to see the most recent maintenance information</p>'+
 							'</div>';
 						$scope.compiled = $compile(htmlContent)($scope);
