@@ -88,9 +88,13 @@
 					var info = L.control();
 					info.onAdd = function (map) {
 						var htmlContent = '<div class="info"><h4>Canal Maintenance Information</h4>'+
-							'<p ng-show="recentMaintenance[hoverSegment]"><span ng-repeat="fieldRow in hoverFields" style="display:block" ng-show="recentMaintenance[hoverSegment][fieldRow.key]"><span style="font-weight:bold;">{{fieldRow.label}}:</span> {{recentMaintenance[hoverSegment][fieldRow.key]}}</span></p>'+
-							'<p ng-show="hoverSegment && !recentMaintenance[hoverSegment]">There is no recent maintenance information for {{hoverSegment}} as of {{dateString}}</p>'+
-							'<p ng-hide="hoverSegment">Hover over a canal segment to see the most recent maintenance information</p>'+
+							'<div ng-show="recentMaintenance[hoverSegment]"><span ng-repeat="fieldRow in hoverFields" style="display:block" ng-show="recentMaintenance[hoverSegment][fieldRow.key]"><span style="font-weight:bold;">{{fieldRow.label}}:</span> {{recentMaintenance[hoverSegment][fieldRow.key]}}</span></div>'+
+							'<div ng-show="hoverSegment && !recentMaintenance[hoverSegment]">There is no recent maintenance information for {{hoverSegment}} as of {{dateString}}</div>'+
+							'<div ng-hide="hoverSegment">Hover over a canal segment to see the most recent maintenance information'+
+							'<div><span style="width:40px;height:20px;display:inline-block;vertical-align:middle;background:#ff0000"/><span style="vertical-align:middle;margin-left:2px;">No past maintenance</span></div>'+
+							'<div><span style="width:40px;height:20px;display:inline-block;vertical-align:middle;background:yellow;border:solid black 1px;"/><span style="vertical-align:middle;margin-left:2px;">Just underwent maintenance</span></div>'+
+							'<div><span style="width:40px;height:20px;display:inline-block;vertical-align:middle;background:#00ff00"/><span style="vertical-align:middle;margin-left:2px;">Had past maintenance</span></div>'+
+							'</div>'+
 							'</div>';
 						$scope.compiled = $compile(htmlContent)($scope);
 						this._content = $scope.compiled[0];
@@ -114,6 +118,28 @@
 						return this._content;
 					};
 					return info;
+				}
+				
+				/* Displays question mark and vpc logo */
+				function createBrandBox(){
+					var info = L.control({position: "bottomleft"});
+					info.onAdd = function (map) {
+						var htmlContent = '<div class="info" style="width:auto;">'+
+							'<span ng-click="showAbout()"><img src="about.png" style="cursor:pointer;padding-right:7px;"></span>'+
+							'<a href="http://veniceprojectcenter.org"><img src="vpc25logo.png"></a>'+
+							'</div>';
+						$scope.compiled = $compile(htmlContent)($scope);
+						this._content = $scope.compiled[0];
+						return this._content;
+					};
+					return info;
+				}
+				
+				$scope.showAbout = function (){
+					$('#aboutPanel').show();
+				}
+				$scope.hideAbout = function (){
+					$('#aboutPanel').hide();
 				}
 				
 				var range = 100;
@@ -171,6 +197,8 @@
 				$( document ).ready(function() {
 					createJobInfoBox().addTo(map);
 					createTimeSelectorBox().addTo(map);
+					createBrandBox().addTo(map);
+					$('#aboutPanel').hide();
 					
 				
 					$('#spinner').spin('large', '#fff');
@@ -230,7 +258,18 @@
 		
 		<div style="position:absolute;top:0px;left:0px;width:100%;height:100%;z-index:2000;background-color:rgba(0,0,0,0.5);" id="loadingPanel">
 			<div style="margin-left:auto;margin-right:auto;text-align:center;margin-top:50px;" id="loadingText"><h3 style="color:white;">Loading...</h3></div>
-			<div style="position:absolute;left:50%;top:50%;" id="spinner"/>
+			<div style="position:absolute;left:50%;top:50%;" id="spinner"></div>
+		</div>
+		
+		<div ng-click="hideAbout()" style="position:absolute;top:0px;left:0px;width:100%;height:100%;z-index:2000;background-color:rgba(0,0,0,0.5);" id="aboutPanel">
+			<div class="info" style="position: absolute;top: 50%;left: 50%;margin-top: -250px;margin-left: -250px;height: 500px;width:500px;overflow:auto;padding:5px" id="about">
+				<h4>Canal Maintenance Timeline</h4>
+				This timeline contains information collected by the Venice Project Center on canals maintenance.<br>
+				The canal maintenance information was provided by <a href="http://www.insula.it/" target="_blank">INSULA</a><br>
+				To use drag the slider on the bottom right to change the displayed time. The map will update with segments being dredged at that time in yellow and canals that have had past maintenance in green. Segments in red have not had recorded maintenance before the selected time<br>
+				The timeline was developed by the <a href="http://sites.google.com/site/ve13can/" target="_blank">Venice Project Center 2013 Canals Team</a>
+				<img style="position:absolute;bottom:5px;left:5px;" src="wpi_logo.png">
+			</div>
 		</div>
 	</body>
 </html>
