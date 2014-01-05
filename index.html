@@ -92,7 +92,7 @@
 							'<div ng-show="hoverSegment && !recentMaintenance[hoverSegment]">There is no recent maintenance information for {{hoverSegment}} as of {{dateString}}</div>'+
 							'<div ng-hide="hoverSegment">Hover over a canal segment to see the most recent maintenance information'+
 							'<div><span style="width:40px;height:20px;display:inline-block;vertical-align:middle;background:#ff0000"/><span style="vertical-align:middle;margin-left:2px;">No past maintenance</span></div>'+
-							'<div><span style="width:40px;height:20px;display:inline-block;vertical-align:middle;background:yellow;border:solid black 1px;"/><span style="vertical-align:middle;margin-left:2px;">Just underwent maintenance</span></div>'+
+							'<div><span style="width:40px;height:20px;display:inline-block;vertical-align:middle;background:yellow;"/><span style="vertical-align:middle;margin-left:2px;">Just underwent maintenance</span></div>'+
 							'<div><span style="width:40px;height:20px;display:inline-block;vertical-align:middle;background:#00ff00"/><span style="vertical-align:middle;margin-left:2px;">Had past maintenance</span></div>'+
 							'</div>'+
 							'</div>';
@@ -165,10 +165,10 @@
 									}
 								}
 								if(nearTime){
-									segmentPolygon.setStyle({fillColor: 'yellow', fillOpacity: 1.0, weight: 1});
+									segmentPolygon.setStyle({fillColor: 'yellow', color: 'yellow', fillOpacity: 1.0, weight: 2});
 								}
 								else{
-									segmentPolygon.setStyle({fillColor: '#00ff00', fillOpacity: 0.5, weight: 0});
+									segmentPolygon.setStyle({fillColor: '#00ff00', color: '#00ff00', fillOpacity: 0.5, weight: 2});
 								}
 							}
 							else{
