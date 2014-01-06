@@ -156,7 +156,7 @@
 									var jobData = data.all[i];
 									var index = jobData.timeIndex;
 									if(index<timeIndex+range/2){
-										if(!$scope.recentMaintenance[segmentId] || index<$scope.recentMaintenance[segmentId].timeIndex)
+										if(!$scope.recentMaintenance[segmentId] || index>$scope.recentMaintenance[segmentId].timeIndex)
 											$scope.recentMaintenance[segmentId] = jobData;
 									}
 									if(index>timeIndex-range/2 && index<timeIndex+range/2){
